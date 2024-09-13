@@ -219,7 +219,7 @@ const updateVideoProcess = asyncHandler(async (req, res) => {
         new ApiResponse(
           500,
           {},
-          "Somthing gose wrong while updateing video details, Error : ." +
+          "Somthing goes wrong while updateing video details, Error : ." +
             String(error)
         )
       );
