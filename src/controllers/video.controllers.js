@@ -146,18 +146,12 @@ const updateVideoProcess = asyncHandler(async (req, res) => {
       videoDuration = 0,
     } = req.body;
 
-    console.log("Request Body : "+ JSON.parse(req.body));
-
-    console.log(secretKey,hlsVideoUrls,vttFileUrl,objKey,videoDuration);
-    
-    
+    console.log("Received request with body:", req.body);
 
     if (String(secretKey) !== String(process.env.DB_VIDEO_PROCESS_UPDATE_SECRET)) {
       return res
         .status(403)
-        .json(
-          new ApiResponse(403, {}, "You are not allow to access this route.")
-        );
+        .json(new ApiResponse(403, {}, "You are not allowed to access this route."));
     }
 
     const vId = String(objKey).replace(".mp4", "");
@@ -165,7 +159,7 @@ const updateVideoProcess = asyncHandler(async (req, res) => {
     if (!mongoose.isValidObjectId(vId)) {
       return res
         .status(400)
-        .json(new ApiResponse(400, {}, "Video id canot get from ObjKey."));
+        .json(new ApiResponse(400, {}, "Invalid Video ID derived from ObjKey."));
     }
 
     const video = await Video.findById(vId);
@@ -173,37 +167,27 @@ const updateVideoProcess = asyncHandler(async (req, res) => {
     if (!video) {
       return res
         .status(404)
-        .json(new ApiResponse(404, {}, "Can't find video By Id."));
+        .json(new ApiResponse(404, {}, "Cannot find video by ID."));
     }
 
     const hlsUrls = [
-      {
-        qulity: "360p",
-        videoUrl: "",
-      },
-      {
-        qulity: "720p",
-        videoUrl: "",
-      },
-      {
-        qulity: "1080p",
-        videoUrl: "",
-      },
+      { quality: "360p", videoUrl: "" },
+      { quality: "720p", videoUrl: "" },
+      { quality: "1080p", videoUrl: "" },
     ];
 
-    hlsVideoUrls.map((urls) => {
-      if (String(urls).includes("hls/video-360P")) {
-        hlsUrls[0].videoUrl=(String(urls));
-      } else if (String(urls).includes("hls/video-720P")) {
-        hlsUrls[1].videoUrl=(String(urls));
-      } else if (String(urls).includes("hls/video-1080P")) {
-        hlsUrls[2].videoUrl=(String(urls));
+    hlsVideoUrls.forEach((url) => {
+      if (url.includes("hls/video-360P")) {
+        hlsUrls[0].videoUrl = url;
+      } else if (url.includes("hls/video-720P")) {
+        hlsUrls[1].videoUrl = url;
+      } else if (url.includes("hls/video-1080P")) {
+        hlsUrls[2].videoUrl = url;
       }
     });
 
     video.duration = videoDuration;
     video.isProcessComplete = true;
-
     video.videoTypes = hlsUrls;
     video.vttFile = vttFileUrl;
 
@@ -211,19 +195,14 @@ const updateVideoProcess = asyncHandler(async (req, res) => {
 
     return res
       .status(200)
-      .json(new ApiResponse(200, {}, "Video details updated."));
+      .json(new ApiResponse(200, {}, "Video details updated successfully."));
   } catch (error) {
+    console.error("Error updating video details:", error);
     return res
       .status(500)
-      .json(
-        new ApiResponse(
-          500,
-          {},
-          "Somthing goes wrong while updateing video details, Error : ." +
-            String(error)
-        )
-      );
+      .json(new ApiResponse(500, {}, `Something went wrong while updating video details: ${error.message}`));
   }
 });
+
 
 export { uploadVideo, getVideo, updateVideoProcess };
