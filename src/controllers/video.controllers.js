@@ -146,7 +146,10 @@ const updateVideoProcess = asyncHandler(async (req, res) => {
       videoDuration = 0,
     } = req.body;
 
-    if (secretKey !== process.env.DB_VIDEO_PROCESS_UPDATE_SECRET) {
+    console.log("Request Body : "+req.body);
+    
+
+    if (String(secretKey) !== String(process.env.DB_VIDEO_PROCESS_UPDATE_SECRET)) {
       return res
         .status(403)
         .json(
