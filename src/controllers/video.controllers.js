@@ -146,7 +146,10 @@ const updateVideoProcess = asyncHandler(async (req, res) => {
       videoDuration = 0,
     } = req.body;
 
-    console.log("Request Body : "+req.body);
+    console.log("Request Body : "+ JSON.parse(req.body));
+
+    console.log(secretKey,hlsVideoUrls,vttFileUrl,objKey,videoDuration);
+    
     
 
     if (String(secretKey) !== String(process.env.DB_VIDEO_PROCESS_UPDATE_SECRET)) {
