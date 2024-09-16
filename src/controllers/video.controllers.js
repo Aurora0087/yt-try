@@ -6,7 +6,10 @@ import { ApiResponse } from "../utils/apiResponse.js";
 import { Video } from "../models/video.models.js";
 import mongoose from "mongoose";
 
+import path from "path"
+
 const uploadVideo = asyncHandler(async (req, res) => {
+
   // taking text type fild
   const { title, description } = req.body;
 
@@ -14,125 +17,91 @@ const uploadVideo = asyncHandler(async (req, res) => {
   const video = req.files?.video ? req.files?.video[0] : null;
   const thumbnail = req.files?.thumbnail ? req.files?.thumbnail[0] : null;
 
+  if (!title || String(title).trim().length < 1) {
+    deleteLocalFiles([video?.path, thumbnail?.path]);
+    return res
+      .status(400)
+      .json(new ApiResponse(400, {}, "Title are Require."));
+  }
+
+  if (!description || String(description).trim().length < 1) {
+    deleteLocalFiles([video?.path, thumbnail?.path]);
+    return res
+      .status(400)
+      .json(new ApiResponse(400, {}, "Video Description are Require."));
+  }
+
+  if (!video) {
+    deleteLocalFiles([thumbnail?.path]);
+    return res.status(400).json(new ApiResponse(400, {}, "Video not given."));
+  }
+
+  if (!thumbnail) {
+    deleteLocalFiles([video?.path]);
+    return res
+      .status(400)
+      .json(new ApiResponse(400, {}, "Thumbnail not given."));
+  }
+
+  if (!String(thumbnail?.mimetype).includes("image/")) {
+    deleteLocalFiles([video?.path, thumbnail?.path]);
+    return res
+      .status(400)
+      .json(
+        new ApiResponse(400, {}, "Thumbnail file must be in image format.")
+      );
+  }
+
+  if (!String(video?.mimetype).includes("video/mp4")) {
+    deleteLocalFiles([video?.path, thumbnail?.path]);
+    return res
+      .status(400)
+      .json(new ApiResponse(400, {}, "Video file must be in mp4 format."));
+  }
+
+  // Set headers for SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders(); // Flush headers and start streaming
+
   try {
-    if (!title || String(title).trim().length < 1) {
-      deleteLocalFiles([video?.path, thumbnail?.path]);
-      return res
-        .status(400)
-        .json(new ApiResponse(400, {}, "Title are Require."));
-    }
-
-    if (!description || String(description).trim().length < 1) {
-      deleteLocalFiles([video?.path, thumbnail?.path]);
-      return res
-        .status(400)
-        .json(new ApiResponse(400, {}, "Video Description are Require."));
-    }
-
-    if (!video) {
-      deleteLocalFiles([thumbnail?.path]);
-      return res.status(400).json(new ApiResponse(400, {}, "Video not given."));
-    }
-
-    if (!thumbnail) {
-      deleteLocalFiles([video?.path]);
-      return res
-        .status(400)
-        .json(new ApiResponse(400, {}, "Thumbnail not given."));
-    }
-
-    if (!String(thumbnail?.mimetype).includes("image/")) {
-      deleteLocalFiles([video?.path, thumbnail?.path]);
-      return res
-        .status(400)
-        .json(
-          new ApiResponse(400, {}, "Thumbnail file must be in image format.")
-        );
-    }
-
-    if (!String(video?.mimetype).includes("video/mp4")) {
-      deleteLocalFiles([video?.path, thumbnail?.path]);
-      return res
-        .status(400)
-        .json(new ApiResponse(400, {}, "Video file must be in mp4 format."));
-    }
-
-    //
     const newVideoContent = await Video.create({
-      title: title,
-      description: description,
+      title,
+      description,
       thumbnail: "none",
       owner: new mongoose.Types.ObjectId(req.user._id || ""),
       duration: 0,
       isPublished: true,
     });
 
-    if (!newVideoContent) {
-      return res
-        .status(500)
-        .json(
-          new ApiResponse(
-            500,
-            {},
-            "Somthing want wrong while creating video details."
-          )
-        );
-    }
+    // Progress callback to send progress updates
+    const progressCallback = (progress) => {
+      res.write(`data: ${JSON.stringify({ progress })}\n\n`);
+    };
 
-    const videoFileName = newVideoContent._id + ".mp4";
-    const thumbnailFileName = thumbnail.filename;
+    // Upload files with progress tracking
+    const videoFileName = `${newVideoContent._id}.mp4`;
 
-    const videoLocalPath = video?.path;
-    const thumbnailLocalPath = thumbnail?.path;
+    const thumbnailExtension  = path.extname(thumbnail.filename);
+    const thumbnailFileName = `${newVideoContent._id}${thumbnailExtension}`;
 
-    let s3Response = await uploadFileS3(videoLocalPath, videoFileName);
+    await uploadFileS3(video.path, videoFileName, progressCallback);
+    await uploadFileS3(thumbnail.path, thumbnailFileName, progressCallback);
 
-    if (!s3Response) {
-      await newVideoContent.deleteOne();
-      return res
-        .status(500)
-        .json(
-          new ApiResponse(500, {}, "Somthing want wrong while uploading video.")
-        );
-    }
+    // Notify client of success
+    res.write(`data: ${JSON.stringify({ message: "Upload complete" })}\n\n`);
+    res.end(); // End the connection when done
 
-    s3Response = await uploadFileS3(thumbnailLocalPath, thumbnailFileName);
-
-    if (!s3Response) {
-      await newVideoContent.deleteOne();
-      return res
-        .status(500)
-        .json(
-          new ApiResponse(
-            500,
-            {},
-            "Somthing want wrong while uploading video thumbnail."
-          )
-        );
-    }
-
-    return res.status(200).json(
-      new ApiResponse(
-        200,
-        {
-          video: newVideoContent,
-        },
-        "Video uploaded successfully."
-      )
-    );
   } catch (error) {
+
     deleteLocalFiles([video?.path, thumbnail?.path]);
-    return res
-      .status(500)
-      .json(
-        new ApiResponse(
-          500,
-          {},
-          `Somthing goes wrong while uploading videos. Error : ${String(error)}`
-        )
-      );
+    res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+    res.end(); // Close the stream on error
   }
 });
+
+
 
 const getVideo = asyncHandler(async (req, res) => {});
 

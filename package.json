@@ -6,12 +6,13 @@
   "main": "src/index.js",
   "scripts": {
     "dev": "nodemon -r dotenv/config --experimental-json-modules src/index.js",
-    "start":"node src/index.js"
+    "start": "node src/index.js"
   },
   "author": "aurora",
   "license": "ISC",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.645.0",
+    "@aws-sdk/lib-storage": "^3.651.1",
     "@aws-sdk/s3-request-presigner": "^3.645.0",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "bcrypt": "^5.1.1",
