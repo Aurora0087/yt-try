@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getUserDetails, verifyUsersEmailVerifyed } from "../middlewares/auth.middleware.js";
-import { getVideo, updateVideoProcess, uploadVideo } from "../controllers/video.controllers.js";
+import { getVideo, updateVideoProcess, updateVideoThumbnailFromEcs, uploadVideo } from "../controllers/video.controllers.js";
 import { upload } from "../middlewares/multer.middleware.js";
 
 
@@ -21,5 +21,7 @@ videoRouter.route("/upload").post(
 videoRouter.route("/get").get(getUserDetails,getVideo);
 
 videoRouter.route("/update/process").post(updateVideoProcess);
+
+videoRouter.route("/update/process/thumbnail").post(updateVideoThumbnailFromEcs);
 
 export default videoRouter;

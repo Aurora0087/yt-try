@@ -146,8 +146,6 @@ const updateVideoProcess = asyncHandler(async (req, res) => {
       videoDuration = 0,
     } = req.body;
 
-    console.log("Received request with body:", req.body);
-
     if (String(secretKey) !== String(process.env.DB_VIDEO_PROCESS_UPDATE_SECRET)) {
       return res
         .status(403)
@@ -204,5 +202,60 @@ const updateVideoProcess = asyncHandler(async (req, res) => {
   }
 });
 
+const updateVideoThumbnailFromEcs = asyncHandler(async(req,res) =>{
 
-export { uploadVideo, getVideo, updateVideoProcess };
+  try {
+    const {
+      secretKey = "",
+      objKey = "",
+      webpImageUrl = "",
+    } = req.body;
+  
+    if (String(secretKey) !== String(process.env.DB_VIDEO_PROCESS_UPDATE_SECRET)) {
+      return res
+        .status(403)
+        .json(new ApiResponse(403, {}, "You are not allowed to access this route."));
+    }
+  
+    const vId = String(objKey).replace(/\.(jpg|jpeg|png|gif|bmp|webp|tiff)$/i, "");
+  
+    if (!mongoose.isValidObjectId(vId)) {
+      return res
+        .status(400)
+        .json(new ApiResponse(400, {}, "Invalid Video ID derived from ObjKey."));
+    }
+  
+    const video = await Video.findById(vId);
+  
+    if (!video) {
+      return res
+        .status(404)
+        .json(new ApiResponse(404, {}, "Cannot find video by ID."));
+    }
+  
+    video.thumbnail= webpImageUrl;
+  
+    await video.save();
+  
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {},
+        "Image Url seated."
+      )
+    )
+  } catch (error) {
+    console.log("Somthing goes wrong while updateing thamnail : ", error);
+    return res.status(500).json(
+      new ApiResponse(
+        500,
+        {},
+        `Somthing goes wrong while updateing thamnail :  ${error}`
+      )
+    )
+    
+  }
+})
+
+
+export { uploadVideo, getVideo, updateVideoProcess, updateVideoThumbnailFromEcs };
