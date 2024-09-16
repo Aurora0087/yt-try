@@ -17,11 +17,12 @@ connectDB()
             throw err
         })
 
-        app.listen(port, () => {
+        const server = app.listen(port, () => {
             console.log(`Server is running on http://localhost:${port}`);
             
-        }).timeout(0);
+        });
         
+        server.timeout = 0;
     })
     .catch((err) => {
     console.log("MpngoDb connection fails... ",err);
