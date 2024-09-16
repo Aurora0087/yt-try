@@ -20,7 +20,7 @@ connectDB()
         app.listen(port, () => {
             console.log(`Server is running on http://localhost:${port}`);
             
-        })
+        }).timeout(0);
         
     })
     .catch((err) => {
