@@ -38,7 +38,6 @@ async function generateAccessTokenAndRefreshToken(uid) {
 
     } catch (error) {
         console.log(error);
-
         throw new ApiError(500, "Somthing went wrong while generating token.");
     }
 };
@@ -358,6 +357,9 @@ const incomingRefreshToken = asyncHandler(async (req, res) => {
             new ApiResponse(200,
                 {
                     userName: user.userName,
+                    uid:user._id,
+                    firstName:user.firstName,
+                    lastName:user.lastName
                 },
                 "User'd Token Refresher Successfully."
             )
