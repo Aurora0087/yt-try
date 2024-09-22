@@ -356,7 +356,7 @@ const incomingRefreshToken = asyncHandler(async (req, res) => {
         .json(
             new ApiResponse(200,
                 {
-                    userName: user.userName,
+                    userName: user.username,
                     uid:user._id,
                     firstName:user.firstName,
                     lastName:user.lastName
