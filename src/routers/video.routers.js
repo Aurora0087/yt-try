@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { getUserDetails, verifyUsersEmailVerifyed } from "../middlewares/auth.middleware.js";
-import { getVideo, updateVideoProcess, updateVideoThumbnailFromEcs, uploadVideo } from "../controllers/video.controllers.js";
+import { getUserDetails, verifyJWT, verifyUsersEmailVerifyed } from "../middlewares/auth.middleware.js";
+import { addToWatchHistory, deleteVideoContent, getVideo, newVideos, recommendedVideos, searchVideos, updateVideoDetails, updateVideoThumbnail, uploadedVideosState, uploadVideo } from "../controllers/video.controllers.js";
 import { upload } from "../middlewares/multer.middleware.js";
 
 
@@ -18,10 +18,33 @@ videoRouter.route("/upload").post(
         }
     ]),verifyUsersEmailVerifyed, uploadVideo);
 
+videoRouter.route("/state").post(verifyUsersEmailVerifyed,uploadedVideosState);
+
+
+
 videoRouter.route("/get").get(getUserDetails,getVideo);
 
-videoRouter.route("/update/process").post(updateVideoProcess);
+videoRouter.route('/search').post(searchVideos);
 
-videoRouter.route("/update/process/thumbnail").post(updateVideoThumbnailFromEcs);
+videoRouter.route('/new').post(newVideos);
+
+videoRouter.route('/recommended').post(recommendedVideos);
+
+videoRouter.route('/add/history').post(getUserDetails,addToWatchHistory);
+
+
+
+// owner update
+
+videoRouter.route('/update/details').post(verifyJWT,updateVideoDetails);
+
+videoRouter.route('/update/thumbnail').post(upload.fields([
+    {
+        name: "thumbnail",
+        maxCount: 1
+    }
+]),verifyJWT,updateVideoThumbnail);
+
+videoRouter.route('/delete').post(verifyJWT,deleteVideoContent);
 
 export default videoRouter;

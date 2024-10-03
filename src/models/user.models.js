@@ -6,6 +6,9 @@ const userSchema = new Schema({
     avatar: {
         type: String,
     },
+    bg:{
+        type:String
+    },
     firstName: {
         type: String,
         require: true,
@@ -28,6 +31,9 @@ const userSchema = new Schema({
     },
     password: {
         type: String
+    },
+    bio:{
+        type:String
     },
     role: {
         type: String,
