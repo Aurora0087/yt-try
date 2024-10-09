@@ -16,6 +16,7 @@ const updateVideoFileProcess = asyncHandler(async (req, res) => {
             vttFileUrl = "",
             objKey = "",
             videoDuration = 0,
+            masterVideoUrl = ""
         } = req.body;
 
         if (String(secretKey) !== String(process.env.DB_VIDEO_PROCESS_UPDATE_SECRET)) {
@@ -42,17 +43,20 @@ const updateVideoFileProcess = asyncHandler(async (req, res) => {
 
         const hlsUrls = [
             { quality: "360p", videoUrl: "" },
+            { quality: "480p", videoUrl: "" },
             { quality: "720p", videoUrl: "" },
             { quality: "1080p", videoUrl: "" },
         ];
 
         hlsVideoUrls.forEach((url) => {
-            if (url.includes("hls/video-360P")) {
+            if (url.includes("hls/360p")) {
                 hlsUrls[0].videoUrl = url;
-            } else if (url.includes("hls/video-720P")) {
+            } else if (url.includes("hls/480p")) {
                 hlsUrls[1].videoUrl = url;
-            } else if (url.includes("hls/video-1080P")) {
+            } else if (url.includes("hls/720p")) {
                 hlsUrls[2].videoUrl = url;
+            } else if (url.includes("hls/1080p")) {
+                hlsUrls[3].videoUrl = url;
             }
         });
 
@@ -60,6 +64,7 @@ const updateVideoFileProcess = asyncHandler(async (req, res) => {
         video.isProcessComplete = true;
         video.videoTypes = hlsUrls;
         video.vttFile = vttFileUrl;
+        video.masterVideoUrl = masterVideoUrl;
 
         await video.save();
 

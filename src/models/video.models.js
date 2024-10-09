@@ -28,6 +28,9 @@ const videoSchema = new Schema(
             minlength: [1, "Description must be at least 1 character long"],
             index: true,
         },
+        masterVideoUrl:{
+            type:String,
+        },
         videoTypes: [
             {
                 type : videoQulityDetail

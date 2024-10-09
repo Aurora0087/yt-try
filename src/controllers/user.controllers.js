@@ -589,11 +589,87 @@ const forgotPassword = asyncHandler(async (req, res) => {
 // geting current login user
 
 const getCurrentUser = asyncHandler(async (req, res) => {
+
+     // aggregate pipeline
+     const channal = await User.aggregate([
+
+        //find user with channal with userName
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.user._id)
+            }
+        },
+        //get all subscriberes
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channal",
+                as: "subscriberes"
+            }
+        },
+        // get all channal when channalUserName subscribed to
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribto"
+            }
+        },
+        // find is current user subscibed or not and add 3 new filds
+        {
+            $addFields: {
+                // count of subscriberes
+                subscriberes: {
+                    $size: "$subscriberes"
+                },
+                // count of subscribed channales/user
+                subscribto: {
+                    $size: "$subscribto"
+                },
+                // find is current user subscribed to channalUserName
+                isSubscribed: {
+                    $cond: {
+                        if: { $in: [(req.user._id || "none"), "$subscriberes.subscriber"] },
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        //getting which filds are needed
+        {
+            $project: {
+                avatar: 1,
+                bg: 1,
+                firstName: 1,
+                lastName: 1,
+                username: 1,
+                bio: 1,
+                isEmailVerified:1,
+                subscriberes: 1,
+                subscribto: 1,
+                isSubscribed: 1,
+                createdAt: 1,
+            }
+        }
+    ]);
+
+    if (!channal[0]) {
+        return res.status(404).json(
+            new ApiResponse(404,
+                {},
+                `Can't found User details Try after login again.`
+            )
+        )
+    }
+
     return res.status(200).json(
         new ApiResponse(
             200,
             {
-                user: req.user,
+                user: channal[0],
             },
             "Current user fetched successfully."
         )

@@ -9,6 +9,8 @@ import mongoose from "mongoose";
 import path from "path"
 import { WatchHistory } from "../models/watchHistory.models.js";
 
+import DOMPurify from 'dompurify';
+
 // upload new video
 
 const uploadVideo = asyncHandler(async (req, res) => {
@@ -69,9 +71,12 @@ const uploadVideo = asyncHandler(async (req, res) => {
   res.flushHeaders(); // Flush headers and start streaming
 
   try {
+
+    const sanitizedHTML = DOMPurify.sanitize(description);
+
     const newVideoContent = await Video.create({
       title,
-      description,
+      description : sanitizedHTML,
       thumbnail: "none",
       owner: new mongoose.Types.ObjectId(req.user._id || ""),
       duration: 0,
@@ -121,7 +126,7 @@ const uploadedVideosState = asyncHandler(async (req, res) => {
       $addFields: {
         state: {
           $cond: {
-            if: { $eq: ["$isProcessCanceled", true] }, // Correct field reference
+            if: { $eq: ["$isPrecessCanceled", true] }, // Correct field reference
             then: "ERROR",
             else: "PROCESS",
           },
@@ -149,6 +154,178 @@ const uploadedVideosState = asyncHandler(async (req, res) => {
   );
 });
 
+
+// get current users posted videos
+
+const getUploadedVideosByCurrentuser = asyncHandler(async(req,res)=>{
+
+const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+
+  const pipeline = [
+    {
+      $match: {
+        owner: new mongoose.Types.ObjectId(req.user._id),
+        isProcessComplete:true
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        foreignField: "_id",
+        localField: "owner",
+        as: "channal",
+        pipeline: [
+          {
+            $lookup: {
+              from: "subscriptions",
+              foreignField: "channal",
+              localField: "_id",
+              as: "subscribers",
+            },
+          },
+          {
+            $project: {
+              avatar: 1,
+              firstName: 1,
+              lastName: 1,
+              username: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $lookup: {
+        from: "likes",
+        foreignField: "video",
+        localField: "_id",
+        as: "likelist",
+      },
+    },
+    {
+      $addFields: {
+        channal: { $first: "$channal" },
+        likes: { $size: "$likelist" },
+      },
+    },
+    {
+      $project: {
+        title: 1,
+        videoTypes: 1,
+        thumbnail: 1,
+        channal: 1,
+        duration: 1,
+        views: 1,
+        createdAt: 1,
+        likes: 1,
+        isPublished:1,
+        vttFile:1,
+      },
+    },
+  ];
+
+  // Use aggregatePaginate to paginate the results
+  const options = { page, limit };
+
+  const videos = await Video.aggregatePaginate(Video.aggregate(pipeline), options);
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      { videos: videos },
+      'Current users videoes fetched successfully.'
+    )
+  );
+});
+
+
+// get channals uploaded videos 
+
+const getUploadedVideosByChannal = asyncHandler(async(req,res)=>{
+
+  const channalId = req.query.channalId || '';
+
+  const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+  
+    const pipeline = [
+      {
+        $match: {
+          owner: new mongoose.Types.ObjectId(channalId),
+          isPublished: true,
+          isProcessComplete:true
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          foreignField: "_id",
+          localField: "owner",
+          as: "channal",
+          pipeline: [
+            {
+              $lookup: {
+                from: "subscriptions",
+                foreignField: "channal",
+                localField: "_id",
+                as: "subscribers",
+              },
+            },
+            {
+              $project: {
+                avatar: 1,
+                firstName: 1,
+                lastName: 1,
+                username: 1,
+              },
+            },
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: "likes",
+          foreignField: "video",
+          localField: "_id",
+          as: "likelist",
+        },
+      },
+      {
+        $addFields: {
+          channal: { $first: "$channal" },
+          likes: { $size: "$likelist" },
+        },
+      },
+      {
+        $project: {
+          title: 1,
+          videoTypes: 1,
+          thumbnail: 1,
+          channal: 1,
+          duration: 1,
+          views: 1,
+          createdAt: 1,
+          likes: 1,
+          isPublished:1,
+          vttFile:1,
+        },
+      },
+    ];
+  
+    // Use aggregatePaginate to paginate the results
+    const options = { page, limit };
+  
+    const videos = await Video.aggregatePaginate(Video.aggregate(pipeline), options);
+  
+    res.status(200).json(
+      new ApiResponse(
+        200,
+        { videos: videos },
+        'Channals videoes fetched successfully.'
+      )
+    );
+  });
 
 // get video by id for watch
 const getVideo = asyncHandler(async (req, res) => {
@@ -693,6 +870,8 @@ const searchVideos = asyncHandler(async (req, res) => {
         views: 1,
         createdAt: 1,
         likes: 1,
+        isPublished:1,
+        vttFile:1,
       },
     },
   ];
@@ -776,6 +955,8 @@ const newVideos = asyncHandler(async (req, res) => {
         views: 1,
         createdAt: 1,
         likes: 1,
+        isPublished:1,
+        vttFile:1,
       },
     },
   ];
@@ -811,6 +992,8 @@ export {
   uploadVideo,
   uploadedVideosState,
   getVideo,
+  getUploadedVideosByChannal,
+  getUploadedVideosByCurrentuser,
   updateVideoDetails,
   updateVideoThumbnail,
   deleteVideoContent,

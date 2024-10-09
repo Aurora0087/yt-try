@@ -221,7 +221,7 @@ const updateCommunity = asyncHandler(async (req, res) => {
         }
 
         // upload avater image on s3
-        let s3Response = await uploadFileS3(communityImageLocalPath, `${community[0]._id}${path.extname(communityImage.filename)}`);
+        let s3Response = await uploadFileS3(communityImageLocalPath, `communityId-${community[0]._id}${path.extname(communityImage.filename)}`);
 
         communityImageFileName = communityImage.filename;
 
@@ -321,7 +321,9 @@ const getCurrentUserCommunity = asyncHandler(async (req, res) => {
                         {
                             $project: {
                                 username: 1,
-                                avatar: 1
+                                avatar: 1,
+                                firstName:1,
+                                lastName:1
                             }
                         }
                     ]
@@ -348,6 +350,13 @@ const getCurrentUserCommunity = asyncHandler(async (req, res) => {
                     commentCount: {
                         $size: "$comments"
                     },
+                    isLiked:{
+                        $cond: {
+                            if: { $in: [uId, "$likes.likedBy"] },
+                            then: true,
+                            else: false
+                          }
+                    },
                     likeCount: {
                         $size: "$likes"
                     },
@@ -364,6 +373,7 @@ const getCurrentUserCommunity = asyncHandler(async (req, res) => {
                     updatedAt: 1,
                     commentCount: 1,
                     likeCount: 1,
+                    isLiked:1,
                     channel: 1
                 }
             }

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getUserDetails, verifyJWT, verifyUsersEmailVerifyed } from "../middlewares/auth.middleware.js";
-import { addToWatchHistory, deleteVideoContent, getVideo, newVideos, recommendedVideos, searchVideos, updateVideoDetails, updateVideoThumbnail, uploadedVideosState, uploadVideo } from "../controllers/video.controllers.js";
+import { addToWatchHistory, deleteVideoContent, getUploadedVideosByChannal, getUploadedVideosByCurrentuser, getVideo, newVideos, recommendedVideos, searchVideos, updateVideoDetails, updateVideoThumbnail, uploadedVideosState, uploadVideo } from "../controllers/video.controllers.js";
 import { upload } from "../middlewares/multer.middleware.js";
 
 
@@ -29,6 +29,10 @@ videoRouter.route('/search').post(searchVideos);
 videoRouter.route('/new').post(newVideos);
 
 videoRouter.route('/recommended').post(recommendedVideos);
+
+videoRouter.route('/current').get(verifyJWT,getUploadedVideosByCurrentuser);
+
+videoRouter.route('/channal').get(verifyJWT,getUploadedVideosByChannal);
 
 videoRouter.route('/add/history').post(getUserDetails,addToWatchHistory);
 
