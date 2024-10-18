@@ -9,8 +9,6 @@ import mongoose from "mongoose";
 import path from "path"
 import { WatchHistory } from "../models/watchHistory.models.js";
 
-import DOMPurify from 'dompurify';
-
 // upload new video
 
 const uploadVideo = asyncHandler(async (req, res) => {
@@ -72,11 +70,9 @@ const uploadVideo = asyncHandler(async (req, res) => {
 
   try {
 
-    const sanitizedHTML = DOMPurify.sanitize(description);
-
     const newVideoContent = await Video.create({
       title,
-      description : sanitizedHTML,
+      description,
       thumbnail: "none",
       owner: new mongoose.Types.ObjectId(req.user._id || ""),
       duration: 0,
@@ -140,6 +136,7 @@ const uploadedVideosState = asyncHandler(async (req, res) => {
         createdAt: 1,
         state: 1,
         errorMessage: 1,
+        thumbnail:1,
       },
     },
   ];
@@ -162,10 +159,12 @@ const getUploadedVideosByCurrentuser = asyncHandler(async(req,res)=>{
 const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
 
+  const uId = req.user._id || null;
+
   const pipeline = [
     {
       $match: {
-        owner: new mongoose.Types.ObjectId(req.user._id),
+        owner: new mongoose.Types.ObjectId(uId),
         isProcessComplete:true
       },
     },
@@ -207,11 +206,24 @@ const page = parseInt(req.query.page) || 1;
       $addFields: {
         channal: { $first: "$channal" },
         likes: { $size: "$likelist" },
+        canUpdate: {
+          $cond: {
+            if: { 
+              $and: [
+                { $eq: ["$owner", uId ? new mongoose.Types.ObjectId(uId) : null] } 
+              ]
+            },
+            then: true,
+            else: false
+          }
+
+        }
       },
     },
     {
       $project: {
         title: 1,
+        description:1,
         videoTypes: 1,
         thumbnail: 1,
         channal: 1,
@@ -220,7 +232,9 @@ const page = parseInt(req.query.page) || 1;
         createdAt: 1,
         likes: 1,
         isPublished:1,
+        canUpdate:1,
         vttFile:1,
+        masterVideoUrl:1,
       },
     },
   ];
@@ -229,6 +243,7 @@ const page = parseInt(req.query.page) || 1;
   const options = { page, limit };
 
   const videos = await Video.aggregatePaginate(Video.aggregate(pipeline), options);
+  
 
   res.status(200).json(
     new ApiResponse(
@@ -452,10 +467,14 @@ const getVideo = asyncHandler(async (req, res) => {
         },
         canUpdate: {
           $cond: {
-            if: { $eq: ["$owner", new mongoose.Types.ObjectId(uId) || ""] },
+            if: { 
+              $and: [
+                { $eq: ["$owner", uId ? new mongoose.Types.ObjectId(uId) : null] } 
+              ]
+            },
             then: true,
             else: false
-          },
+          }
 
         }
       }
@@ -466,6 +485,7 @@ const getVideo = asyncHandler(async (req, res) => {
         title: 1,
         description: 1,
         videoTypes: 1,
+        masterVideoUrl:1,
         thumbnail: 1,
         vttFile: 1,
         channal: 1,
@@ -497,11 +517,12 @@ const getVideo = asyncHandler(async (req, res) => {
 const updateVideoDetails = asyncHandler(async (req, res) => {
   const {
     vId,
-    uId,
     newTitle,
     newDescription,
     newIsPublished
   } = req.body;
+
+  const uId = req.user?._id || "";
 
   if (!mongoose.isValidObjectId(vId)) {
     return res

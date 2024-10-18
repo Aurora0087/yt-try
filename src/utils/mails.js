@@ -36,7 +36,7 @@ async function sendVerificationEmail(toEmail, token, uId) {
 }
 
 async function sendForgotPassword(toEmail, token, uId) {
-  const verificationUrl = `http://localhost:8001/api/v1/users/forgotPassword?token=${token}&uId=${uId}`;
+  const verificationUrl = `http://localhost:3000/forgot-password/verify?token=${token}&uId=${uId}`;
   
   try {
     const response = await resend.emails.send({

@@ -25,7 +25,7 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
                 new ApiResponse(
                     401,
                     {},
-                    "Unauthorized Request."
+                    "Unauthorized Request, Try to login again."
                 )
             )
         }
@@ -126,7 +126,7 @@ export const verifyUsersEmailVerifyed = asyncHandler(async (req, res, next) => {
                 new ApiResponse(
                     401,
                     {},
-                    "Unauthorized Request."
+                    "Unauthorized Request.Try to login again"
                 )
             )
         }

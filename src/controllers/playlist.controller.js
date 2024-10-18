@@ -14,7 +14,7 @@ const createPlaylist = asyncHandler(async (req, res) => {
 
     const {
         playlistTitle,
-        playlistDescription,
+        playlistDescription = "No playlistDescription",
         playlistIsPublic = false,
     } = req.body;
 
@@ -432,50 +432,30 @@ const currentUserPlaylist = asyncHandler(async (req, res) => {
                 foreignField: "_id",
                 localField: "videos",
                 as: "videoDetails",
-                pipeline: [
-                    {
-                        $lookup: {
-                            from: "users",
-                            foreignField: "_id",
-                            localField: "owner",
-                            as: "channals",
-                            pipeline: [
-                                {
-                                    $project: {
-                                        username: 1
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        $addFields: {
-                            channal: {
-                                $first: "$channals"
-                            }
-                        }
-                    },
+                pipeline:[
                     {
                         $project: {
                             title: 1,
-                            thumbnail: 1,
-                            videoTypes: 1,
-                            duration: 1,
-                            isPublished: 1,
-                            channal: 1,
-                            createdAt: 1,
-                            updatedAt: 1,
+                            thumbnail: 1
                         }
                     }
                 ]
             }
         },
         {
+            $addFields:{
+                videoCount:{
+                    $size:"$videoDetails"
+                }
+            }
+        },
+        {
             $project: {
                 title: 1,
-                description: 1,
+                description:1,
                 ispublic: 1,
-                videoDetails: 1,
+                videoCount:1,
+                videoDetails:1,
                 createdAt: 1,
                 updatedAt: 1,
             }
@@ -490,7 +470,7 @@ const currentUserPlaylist = asyncHandler(async (req, res) => {
     }
 
     return res.status(200).json(
-        new ApiResponse(200, { playlists }, "Current user's playlists fetched successfully.")
+        new ApiResponse(200, { playlists:playlists || [] }, "Current user's playlists fetched successfully.")
     );
 });
 
@@ -520,56 +500,30 @@ const getChannalPlaylist = asyncHandler(async (req, res) => {
                 foreignField: "_id",
                 localField: "videos",
                 as: "videoDetails",
-                pipeline: [
-                    {
-                        $lookup: {
-                            from: "users",
-                            foreignField: "_id",
-                            localField: "owner",
-                            as: "channals",
-                            pipeline: [
-                                {
-                                    $project: {
-                                        username: 1
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        $addFields: {
-                            channal: {
-                                $first: "$channals"
-                            }
-                        }
-                    },
+                pipeline:[
                     {
                         $project: {
                             title: 1,
-                            thumbnail: 1,
-                            videoTypes: {
-                                $cond: {
-                                    if: "$isPublished",
-                                    then: "$videoTypes",
-                                    else: "$$REMOVE"
-                                }
-                            },
-                            duration: 1,
-                            isPublished: 1,
-                            channal: 1,
-                            createdAt: 1,
-                            updatedAt: 1,
+                            thumbnail: 1
                         }
                     }
                 ]
             }
         },
         {
+            $addFields:{
+                videoCount:{
+                    $size:"$videoDetails"
+                }
+            }
+        },
+        {
             $project: {
                 title: 1,
-                description: 1,
+                description:1,
                 ispublic: 1,
-                videoDetails: 1,
+                videoCount:1,
+                videoDetails:1,
                 createdAt: 1,
                 updatedAt: 1,
             }
@@ -610,6 +564,24 @@ const getPlaylist = asyncHandler(async (req, res) => {
         },
         {
             $lookup: {
+                from: "users",
+                foreignField: "_id",
+                localField: "owner",
+                as: "owners",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            avatar: 1,
+                            firstName: 1,
+                            lastName: 1,
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $lookup: {
                 from: "videos",
                 foreignField: "_id",
                 localField: "videos",
@@ -624,7 +596,10 @@ const getPlaylist = asyncHandler(async (req, res) => {
                             pipeline: [
                                 {
                                     $project: {
-                                        username: 1
+                                        username: 1,
+                                        avatar: 1,
+                                        firstName: 1,
+                                        lastName: 1,
                                     }
                                 }
                             ]
@@ -641,13 +616,14 @@ const getPlaylist = asyncHandler(async (req, res) => {
                         $project: {
                             title: 1,
                             thumbnail: 1,
-                            videoTypes: {
+                            masterVideoUrl: {
                                 $cond: {
                                     if: "$isPublished",
-                                    then: "$videoTypes",
+                                    then: "$masterVideoUrl",
                                     else: "$$REMOVE"
                                 }
                             },
+                            views:1,
                             duration: 1,
                             isPublished: 1,
                             channal: 1,
@@ -661,10 +637,19 @@ const getPlaylist = asyncHandler(async (req, res) => {
         {
             $addFields: {
                 canUpdate: {
-                    $cond: { $eq: ["$owner", new mongoose.Types.ObjectId(uId) || ""] },
-                    then: true,
-                    else: false
-
+                    $cond: {
+                        if: {
+                            $eq: [{ $arrayElemAt: ["$owner._id", 0] }, new mongoose.Types.ObjectId(uId)]
+                        },
+                        then: true,
+                        else: false
+                    }
+                },
+                owner:{
+                    $first: "$owners"
+                },
+                listSize:{
+                    $size : "$videoDetails"
                 }
             }
         },
@@ -674,25 +659,26 @@ const getPlaylist = asyncHandler(async (req, res) => {
                 description: 1,
                 ispublic: 1,
                 videoDetails: 1,
+                listSize:1,
                 createdAt: 1,
                 updatedAt: 1,
                 owner: 1,
-                canUpdate:1
+                canUpdate: 1
             }
         }
     ]);
+    
 
     if (!playlists[0]) {
         return res.status(404).json(
             new ApiResponse(404, {}, "Playlist not found.")
         );
     }
-    
 
     // Check if the user is the owner or if the playlist is public
-    if ((String(playlists[0]?.owner || "404") === String(new mongoose.Types.ObjectId(uId) || "")) || playlists[0]?.ispublic) {
+    if ((String(playlists[0]?.owner._id || "404") === String(uId || "")) || playlists[0]?.ispublic) {
         return res.status(200).json(
-            new ApiResponse(200, { playlists:playlists[0] ||[] }, "Playlist fetched successfully.")
+            new ApiResponse(200, { playlist:playlists[0] ||[] }, "Playlist fetched successfully.")
         );
     } else {
         return res.status(403).json(

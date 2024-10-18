@@ -17,7 +17,7 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const cookieOption = {
     httpOnly: true,
     secure: true,
-    expires: new Date(Date.now() + (3*30*24*3600000))
+    expires: new Date(Date.now() + (3 * 30 * 24 * 3600000))
 };
 
 // funtion for generateTokens and save in db
@@ -235,7 +235,7 @@ const loginUser = asyncHandler(async (req, res) => {
                     uid: user._id,
                     firstName: user.firstName,
                     lastName: user.lastName,
-                    avatar:user.avatar
+                    avatar: user.avatar
                 },
                 "User Login Successfully."
             )
@@ -342,7 +342,7 @@ const incomingRefreshToken = asyncHandler(async (req, res) => {
                     uid: user._id,
                     firstName: user.firstName,
                     lastName: user.lastName,
-                    avatar:user.avatar
+                    avatar: user.avatar
                 },
                 "User'd Token Refresher Successfully."
             )
@@ -443,7 +443,7 @@ const forgotPasswordEmail = asyncHandler(async (req, res) => {
     const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let token = "";
 
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 25; i++) {
         token += characters.charAt(
             Math.floor(Math.random() * characters.length)
         );
@@ -590,8 +590,8 @@ const forgotPassword = asyncHandler(async (req, res) => {
 
 const getCurrentUser = asyncHandler(async (req, res) => {
 
-     // aggregate pipeline
-     const channal = await User.aggregate([
+    // aggregate pipeline
+    const channal = await User.aggregate([
 
         //find user with channal with userName
         {
@@ -647,7 +647,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
                 lastName: 1,
                 username: 1,
                 bio: 1,
-                isEmailVerified:1,
+                isEmailVerified: 1,
                 subscriberes: 1,
                 subscribto: 1,
                 isSubscribed: 1,
@@ -730,11 +730,12 @@ const updateCurrentUser = asyncHandler(async (req, res) => {
 const updateAvatar = asyncHandler(async (req, res) => {
     try {
         const avatar = req.files?.avatar ? req.files?.avatar[0] : null;
+        const bg = req.files?.bg ? req.files?.bg[0] : null;
 
-        if (!avatar) {
+        if (!avatar && !bg) {
             return res
                 .status(401)
-                .json(new ApiResponse(401, {}, "Avatar not given."));
+                .json(new ApiResponse(401, {}, "No image given."));
         }
 
         const user = await User.findById(req.user?._id || "");
@@ -750,40 +751,83 @@ const updateAvatar = asyncHandler(async (req, res) => {
         }
 
         const avatarLocalPath = avatar?.path || "";
+        const bgLocalPath = bg?.path || "";
 
-        if (!String(avatar?.mimetype).includes("image/")) {
-            deleteLocalFiles([avatar?.path]);
-            return res
-                .status(400)
-                .json(
-                    new ApiResponse(400, {}, "Avatar image must be in image format.")
-                );
+        if (avatarLocalPath !== "") {
+            if (!String(avatar?.mimetype).includes("image/")) {
+                deleteLocalFiles([avatar?.path]);
+                return res
+                    .status(400)
+                    .json(
+                        new ApiResponse(400, {}, "Avatar image must be in image format.")
+                    );
+            }
+
+            const progressCallback = (progress) => { };
+
+            // upload avater image on s3
+            let s3Response = await uploadFileS3(
+                avatarLocalPath,
+                `uid-avatar${user._id}${path.extname(avatar.filename)}`,
+                progressCallback
+            );
+
+            // delete old image if its exist
+            if (!user.avatar === "") {
+                await deleteS3PublicImageFile((user.avatar).replace(`https://s3.${process.env.AWS_REGION}.amazonaws.com/${process.env.AWS_S3_PUBLIC_IMAGE_BUCKET_NAME}/`, ''))
+            }
+
+            if (!s3Response) {
+                return res
+                    .status(500)
+                    .json(
+                        new ApiResponse(
+                            500,
+                            {},
+                            "Somthing went wrong while upload Avatar, try after some time."
+                        )
+                    );
+            }
+
         }
 
-        const progressCallback = (progress) => { };
+        if (bgLocalPath !== "") {
+            if (!String(bg?.mimetype).includes("image/")) {
+                deleteLocalFiles([bg?.path]);
+                return res
+                    .status(400)
+                    .json(
+                        new ApiResponse(400, {}, "Background image must be in image format.")
+                    );
+            }
 
-        // upload avater image on s3
-        let s3Response = await uploadFileS3(
-            avatarLocalPath,
-            `uid-avatar${user._id}${path.extname(avatar.filename)}`,
-            progressCallback
-        );
+            const progressCallback = (progress) => { };
 
-        if (!user.avatar === "") {
-            await deleteS3PublicImageFile((user.avatar).replace(`https://s3.${process.env.AWS_REGION}.amazonaws.com/${process.env.AWS_S3_PUBLIC_IMAGE_BUCKET_NAME}/`, ''))
+            // upload avater image on s3
+            let s3Response = await uploadFileS3(
+                bgLocalPath,
+                `uid-bg${user._id}${path.extname(bg.filename)}`,
+                progressCallback
+            );
+
+            // delete old image if its exist
+            if (!user.avatar === "") {
+                await deleteS3PublicImageFile((user.bg).replace(`https://s3.${process.env.AWS_REGION}.amazonaws.com/${process.env.AWS_S3_PUBLIC_IMAGE_BUCKET_NAME}/`, ''))
+            }
+
+            if (!s3Response) {
+                return res
+                    .status(500)
+                    .json(
+                        new ApiResponse(
+                            500,
+                            {},
+                            "Somthing went wrong while upload backround, try after some time."
+                        )
+                    );
+            }
         }
 
-        if (!s3Response) {
-            return res
-                .status(500)
-                .json(
-                    new ApiResponse(
-                        500,
-                        {},
-                        "Somthing went wrong while upload Avatar, try after some time."
-                    )
-                );
-        }
 
         return res.status(200).json(
             new ApiResponse(
@@ -794,11 +838,11 @@ const updateAvatar = asyncHandler(async (req, res) => {
                     firstName: user.firstName,
                     lastName: user.lastName,
                 },
-                "Avatar uploaded."
+                "Image uploaded."
             )
         );
     } catch (error) {
-        deleteLocalFiles([req.files?.avatar[0]?.path]);
+        deleteLocalFiles([req.files?.avatar[0]?.path,req.files?.bg[0]]);
         return res
             .status(500)
             .json(

@@ -51,6 +51,7 @@ const postVideoComment = asyncHandler(async (req, res) => {
         {
             owner: new mongoose.Types.ObjectId(uId),
             video: new mongoose.Types.ObjectId(video._id),
+            text:text
         }
     );
 
@@ -63,11 +64,69 @@ const postVideoComment = asyncHandler(async (req, res) => {
         )
     }
 
+    const comment = await Comment.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(newComment._id)
+            }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "owner",
+                foreignField: "_id",
+                as: "channels",
+                pipeline: [
+                    {
+                        $project: {
+                            avatar: 1,
+                            username: 1,
+                            firstName:1,
+                            lastName:1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $lookup: {
+                from: "likes",
+                localField: "_id",
+                foreignField: "comment",
+                as: "likeLists"
+            }
+        },
+        {
+            $addFields: {
+                likeCount: { $size: "$likeLists" },
+                isLiked: {
+                    $in: [new mongoose.Types.ObjectId(uId), "$likeLists.likedBy"]
+                },
+                channel: { $first: "$channels" },
+                canUpdate: {
+                    $eq: ["$owner", new mongoose.Types.ObjectId(uId)]
+                }
+            }
+        },
+        {
+            $project: {
+                channel: 1,
+                canUpdate: 1,
+                text: 1,
+                isDeleted: 1,
+                likeCount: 1,
+                isLiked: 1,
+                createdAt: 1,
+                updatedAt: 1,
+            }
+        }
+    ]);
+
     return res.status(200).json(
         new ApiResponse(
             200,
             {
-                newComment
+                newComment : comment[0]
             },
             "Comment created successfully."
         )
@@ -108,7 +167,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
         },
         {
             $lookup: {
-                from: "comments",
+                from: "comments", // Lookup for child comments
                 localField: "_id",
                 foreignField: "parentComment",
                 as: "childComments"
@@ -116,7 +175,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
         },
         {
             $lookup: {
-                from: "users",
+                from: "users", // Lookup for user/channel info
                 localField: "owner",
                 foreignField: "_id",
                 as: "channels",
@@ -124,7 +183,9 @@ const getVideoComments = asyncHandler(async (req, res) => {
                     {
                         $project: {
                             avatar: 1,
-                            username: 1
+                            username: 1,
+                            firstName: 1,
+                            lastName: 1
                         }
                     }
                 ]
@@ -132,7 +193,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
         },
         {
             $lookup: {
-                from: "likes",
+                from: "likes", // Lookup for likes
                 localField: "_id",
                 foreignField: "comment",
                 as: "likeLists"
@@ -140,8 +201,8 @@ const getVideoComments = asyncHandler(async (req, res) => {
         },
         {
             $addFields: {
-                childCommentCount: { $size: "$childComments" },
-                likeCount: { $size: "$likeLists" },
+                childCommentCount: { $size: "$childComments" }, // Add field for child comment count
+                likeCount: { $size: "$likeLists" }, // Add field for like count
                 isLiked: {
                     $in: [new mongoose.Types.ObjectId(uId), "$likeLists.likedBy"]
                 },

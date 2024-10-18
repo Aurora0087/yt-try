@@ -33,9 +33,12 @@ userRouter.route("/current").get(verifyJWT,getCurrentUser);
 
 userRouter.route("/update/details").post(verifyJWT,updateCurrentUser);
 
-userRouter.route("update/avatar").post(upload.fields([
+userRouter.route("/update/avatar").post(upload.fields([
     {
         name: "avatar",
+        maxCount: 1
+    },{
+        name: "bg",
         maxCount: 1
     }
 ]),verifyJWT,updateAvatar);
